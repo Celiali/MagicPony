@@ -166,7 +166,6 @@ class InstancePredictor(nn.Module):
         ## Pose network
         self.pose_arch = cfgs.get('pose_arch', 'encoder_dino_patch_key')
         self.cam_pos_z_offset = cfgs.get('cam_pos_z_offset', 10.)
-        self.cam_pos_offset = torch.FloatTensor([0, 0, -self.cam_pos_z_offset])
         self.fov = cfgs.get('fov', 25)
         half_range = np.tan(self.fov /2 /180 * np.pi) * self.cam_pos_z_offset  # 2.22
         self.max_trans_xy_range = half_range * cfgs.get('max_trans_xy_range_ratio', 1.)
@@ -226,6 +225,7 @@ class InstancePredictor(nn.Module):
             self.num_leg_bones = cfgs.get('num_leg_bones', 0)
             self.num_bones = self.num_body_bones + self.num_legs * self.num_leg_bones
             self.attach_legs_to_body_epochs = np.arange(*cfgs.get('attach_legs_to_body_epochs', [0, 0]))
+            self.legs_to_body_joint_indices = cfgs.get('legs_to_body_joint_indices', None)
             self.static_root_bones = cfgs.get('static_root_bones', False)
             self.skinning_temperature = cfgs.get('skinning_temperature', 1)
             self.max_arti_angle = cfgs.get('max_arti_angle', 60)
@@ -347,7 +347,7 @@ class InstancePredictor(nn.Module):
         ## recompute kinematic tree at the beginning of each epoch
         if self.kinematic_tree_epoch != epoch:
             attach_legs_to_body = epoch in self.attach_legs_to_body_epochs
-            bones, self.kinematic_tree, self.bone_aux = estimate_bones(verts.detach(), self.num_body_bones, n_legs=self.num_legs, n_leg_bones=self.num_leg_bones, body_bones_mode=self.body_bones_mode, compute_kinematic_chain=True, attach_legs_to_body=attach_legs_to_body)
+            bones, self.kinematic_tree, self.bone_aux = estimate_bones(verts.detach(), self.num_body_bones, n_legs=self.num_legs, n_leg_bones=self.num_leg_bones, body_bones_mode=self.body_bones_mode, compute_kinematic_chain=True, attach_legs_to_body=attach_legs_to_body, legs_to_body_joint_indices=self.legs_to_body_joint_indices)
             self.kinematic_tree_epoch = epoch
         else:
             bones = estimate_bones(verts.detach(), self.num_body_bones, n_legs=self.num_legs, n_leg_bones=self.num_leg_bones, body_bones_mode=self.body_bones_mode, compute_kinematic_chain=False, aux=self.bone_aux)
@@ -419,10 +419,14 @@ class InstancePredictor(nn.Module):
         articulated_shape = mesh.make_mesh(verts_articulated, shape.t_pos_idx, v_tex, shape.t_tex_idx, shape.material)
         return articulated_shape, articulation_angles, aux
     
-    def get_camera_extrinsics_from_pose(self, pose, znear=0.1, zfar=1000.):
+    def get_camera_extrinsics_from_pose(self, pose, znear=0.1, zfar=1000., offset_extra=None):
         N = len(pose)
         pose_R = pose[:, :9].view(N, 3, 3).transpose(2, 1)  # to be compatible with pytorch3d
-        pose_T = pose[:, -3:] + self.cam_pos_offset.to(pose.device)
+        if offset_extra is not None:
+            cam_pos_offset = torch.FloatTensor([0, 0, -self.cam_pos_z_offset - offset_extra]).to(pose.device)
+        else:
+            cam_pos_offset = torch.FloatTensor([0, 0, -self.cam_pos_z_offset]).to(pose.device)
+        pose_T = pose[:, -3:] + cam_pos_offset[None, None, :]
         pose_T = pose_T.view(N, 3, 1)
         pose_RT = torch.cat([pose_R, pose_T], axis=2)  # Nx3x4
         w2c = torch.cat([pose_RT, torch.FloatTensor([0, 0, 0, 1]).repeat(N, 1, 1).to(pose.device)], axis=1)  # Nx4x4
