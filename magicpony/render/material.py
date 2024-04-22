@@ -113,7 +113,7 @@ def save_mtl(fn, material, mesh=None, feat=None, resolution=[256, 256]):
             f.write('bsdf   %s\n' % material['bsdf'])
             if 'kd_ks_normal' in material.keys():
                 assert mesh is not None
-                glctx = dr.RasterizeGLContext()
+                glctx = dr.RasterizeCudaContext() #dr.RasterizeGLContext()
                 _, kd, ks, normal = render_uv(glctx, mesh, resolution, material['kd_ks_normal'], feat=feat)
                 batch_size = kd.shape[0]
                 f.write(f'map_Kd {prefix}texture_kd.png\n')

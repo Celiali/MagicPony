@@ -1,3 +1,13 @@
+# CI
+data/cow_coco
+data/horse_combined
+data/horse_videos_multi
+data/zebra_coco
+nvdiffrast/
+logs/
+pytorch3d/
+.history/
+
 __pycache__
 data/*/
 !data/preprocessing/

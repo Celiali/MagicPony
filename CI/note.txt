@@ -1,0 +1,52 @@
+INSTALl:
+
+# need to activate the nvcc module in berzelius
+module load buildenv-gcccuda/11.4-8.3.1-bare
+
+conda create -n dmodel python=3.9
+conda activate dmodel
+(conda install cudatoolkit-dev=11.6)
+(conda install pytorch torchvision torchaudio cudatoolkit=11.6 -c pytorch -c conda-forge)
+pip install torch==1.12.1+cu116 torchvision==0.13.1+cu116 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu116
+
+pip install ninja imageio PyOpenGL glfw xatlas gdown
+pip install git+https://github.com/NVlabs/nvdiffrast/
+pip install --global-option="--no-networks" git+https://github.com/NVlabs/tiny-cuda-nn#subdirectory=bindings/torch
+imageio_download_bin freeimage
+pip install matplotlib==3.5.3 
+pip install opencv-python==4.6.0(.66) 
+pip install pyyaml==6.0 
+pip install tensorboard==2.10.0 
+pip install configargparse==1.5.3 
+pip install einops==0.4.1 
+pip install Pillow==9.5.0
+
+
+
+moviepy=1.0.1 ninja=1.10.2 imageio=2.21.1 gdown=4.5.1
+
+
+conda install -c fvcore -c iopath -c conda-forge fvcore iopath
+conda install -c bottler nvidiacub
+conda install pytorch3d -c pytorch3d
+
+
+to test the nvdiffrast:
+cd nvdiffrast/samples/torch
+python triangle.py --cuda
+python triangle.py --opengl (fail actually) change all RasterizeGLContext() to RasterizeCudaContext()
+
+after install pytorch3d, torch may fail. so need to uninstall and install again
+
+modify magicpony/model.py
+-        self.glctx = dr.RasterizeGLContext()
++        self.glctx = dr.RasterizeCudaContext() #dr.RasterizeGLContext()
+
+modify /magicpony/render/material.py
+-        glctx = dr.RasterizeGLContext()
++        glctx = dr.RasterizeCudaContext() #dr.RasterizeGLContext()
+
+modify tensorboard: 
+  File "/home/x_cili/.conda/envs/magicpony/lib/python3.9/site-packages/torch/utils/tensorboard/summary.py", line 380, in make_histogram
+    cum_counts = np.cumsum(np.greater(counts, 0, dtype=np.int32))
+cum_counts = np.cumsum(np.greater(counts, 0))

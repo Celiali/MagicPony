@@ -60,7 +60,7 @@ class MagicPony:
         self.arti_reg_loss_epochs = np.arange(*cfgs.get('arti_reg_loss_epochs', [0, self.num_epochs]))
         self.render_flow = self.cfgs.get('flow_loss_weight', 0.) > 0.
         
-        self.glctx = dr.RasterizeGLContext()
+        self.glctx = dr.RasterizeCudaContext() #dr.RasterizeGLContext()
         self.in_image_size = cfgs.get('in_image_size', 128)
         self.out_image_size = cfgs.get('out_image_size', 128)
         self.cam_pos_z_offset = cfgs.get('cam_pos_z_offset', 10.)
